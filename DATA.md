@@ -1,6 +1,6 @@
 # Descrierea datelor
 
-Colectat: 2026-11-03T09:45:24Z de pe [visitarad.ro](https://www.visitarad.ro/ro/sitemap) (toate cele 325 locații din sitemap-ul site-ului și 30 trasee), cu [`cmd/scrape`](cmd/scrape/main.go).
+Colectat: 2026-11-03T09:54:35Z de pe [visitarad.ro](https://www.visitarad.ro/ro/sitemap) (toate cele 325 locații din sitemap-ul site-ului și 30 trasee), cu [`cmd/scrape`](cmd/scrape/main.go).
 
 ## `locations.csv` / `locations.json` (325 înregistrări)
 

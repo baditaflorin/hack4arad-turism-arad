@@ -94,6 +94,20 @@ th[aria-sort=ascending]::after{content:" ▲"} th[aria-sort=descending]::after{c
 .more{text-align:center;margin-top:22px}
 .empty{padding:40px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
 
+/* pins + legend */
+.pin-wrap{background:none;border:0}
+.pin{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.5);font-size:15px;line-height:1;color:#fff}
+.pin.sm{width:22px;height:22px;font-size:12px;margin-right:6px;border-width:1.5px;box-shadow:none;flex:none}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.lg{display:inline-flex;align-items:center;font:inherit;font-size:.88rem;padding:4px 12px 4px 5px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--text);cursor:pointer}
+.lg:hover{border-color:var(--accent)}
+.lg.off{opacity:.5}.lg.off .lbl{text-decoration:line-through}
+.lg .n{color:var(--muted);margin-left:4px}
+.chip .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.popup-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:.9rem}
+.popup-actions button{background:none;border:0;padding:0;font:inherit;color:#0b5d8a;text-decoration:underline;cursor:pointer}
+#dl-examples a{word-break:break-all}
+
 /* guide */
 .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:20px}
 .box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
@@ -169,12 +183,18 @@ footer{padding:36px 0 60px;border-top:1px solid var(--line);color:var(--muted);f
         <button role="tab" id="t-map" aria-selected="false">Hartă</button>
         <button role="tab" id="t-table" aria-selected="false">Tabel</button>
       </div>
+      <button class="btn small ghost" id="copylink" title="Copiază adresa cu filtrele și harta curentă">🔗 Copiază linkul</button>
       <button class="btn small ghost" id="dl-sel" title="Descarcă doar rezultatele filtrate">⬇ CSV cu selecția</button>
     </div>
   </div>
   <div id="v-cards"><div class="cards" id="cards"></div><div class="more"><button class="btn ghost" id="more" hidden>Arată mai multe</button></div></div>
-  <div id="v-map" hidden><div id="map" role="region" aria-label="Harta locațiilor"></div><p class="small muted">Hartă © contribuitorii <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>. Apasă pe un pin pentru detalii.</p></div>
+  <div id="v-map" hidden><div id="legend" class="legend" role="group" aria-label="Categorii de pini pe hartă"></div><div id="map" role="region" aria-label="Harta locațiilor"></div><p class="small muted">Hartă © contribuitorii <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>. Apasă pe un pin pentru detalii; apasă pe o categorie din legendă ca să o ascunzi sau să o arăți.</p></div>
   <div id="v-table" hidden><div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div><p class="small muted">Apasă pe un antet de coloană ca să sortezi.</p></div>
+  <details id="deeplinks"><summary>Linkuri directe către hartă, filtre și locații</summary>
+    <p class="small">Adresa din bara browserului se actualizează singură când filtrezi sau deschizi un pin, deci o poți copia oricând (sau apasă „🔗 Copiază linkul”). Exemple:</p>
+    <ul class="small" id="dl-examples"></ul>
+    <p class="small muted">Parametri: <code>q</code> (text căutat), <code>tip</code>, <code>cat</code> (categorie), <code>loc</code> (localitate), <code>ascunde</code> (grupuri de pini ascunse, separate prin virgulă), <code>id</code> (locația deschisă pe hartă). Vederi: <code>#carti</code>, <code>#harta</code>, <code>#tabel</code>. O locație are și link scurt: <code>#loc/ID</code> (ID-ul e în CSV/JSON). Grupuri de pini: <span id="groupkeys"></span>.</p>
+  </details>
 </div></section>
 
 <section id="trasee"><div class="wrap">
@@ -310,6 +330,82 @@ function copy(text){
     var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copiat")}catch(e){toast("Nu am putut copia")}ta.remove()})
 }
 var P=[],T=[],view=[],shown=24,map=null,cluster=null,sortKey=null,sortDir=1;
+var curView="cards",hidden={},openId=null,syncing=false,rendering=false,markerById={},iconCache={};
+
+/* ---------- grupuri de categorii = culoare + iconiță pe hartă ---------- */
+var GROUPS=[
+ {k:"cazare",label:"Cazare",icon:"🛏",color:"#2563eb",cats:["Hoteluri","Pensiuni","Camping","Motel"]},
+ {k:"biserici",label:"Biserici",icon:"⛪",color:"#7c3aed",cats:["Biserici"]},
+ {k:"patrimoniu",label:"Patrimoniu și monumente",icon:"🏛",color:"#b45309",cats:["Clădiri reprezentative","Monumente","Cetăți și castele","Vestigii arheologice"]},
+ {k:"muzee",label:"Muzee",icon:"🖼",color:"#db2777",cats:["Muzee și Case memoriale"]},
+ {k:"natura",label:"Natură și stațiuni",icon:"🌿",color:"#15803d",cats:["Formațiuni naturale","Parcul Natural Lunca Mureșului","Săgeata Verde","Lacul Ghioroc","Stațiunea Moneasa"]},
+ {k:"ape",label:"Ștranduri și băi",icon:"🏊",color:"#0891b2",cats:["Ștranduri","Băile Lipova"]},
+ {k:"vin",label:"Vin și crame",icon:"🍷",color:"#9f1239",cats:["Crama","Obiective turistice de pe Drumul Vinului"]},
+ {k:"mancare",label:"Mâncare și băutură",icon:"🍽",color:"#ea580c",cats:["Restaurant","Cafenea","Cofetărie","Pizzerie","Fast food","Pub","Bistro"]},
+ {k:"agrement",label:"Agrement și cultură",icon:"🎭",color:"#4b5563",cats:["Agrement și relaxare","Cinema","Clubbing","Teatru"]}
+];
+var OTHER={k:"altele",label:"Altele",icon:"📍",color:"#6b7280",cats:[]};
+var GBY={};GROUPS.forEach(function(g){g.cats.forEach(function(c){GBY[c]=g})});
+function groupOf(l){return GBY[l.category]||OTHER}
+function pinIcon(g){
+  return iconCache[g.k]||(iconCache[g.k]=L.divIcon({className:"pin-wrap",iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-15],
+    html:'<span class="pin" style="background:'+g.color+'">'+g.icon+'</span>'}));
+}
+
+/* ---------- linkuri directe: starea din URL (#harta?cat=Biserici&id=10) ---------- */
+var EXPL={explora:null,carti:"cards",harta:"map",tabel:"table"};
+function placeLink(id){return location.href.split("#")[0]+"#loc/"+id}
+function setSel(id,val){var sel=$(id),ok=false;if(val)for(var i=0;i<sel.options.length;i++)if(sel.options[i].value===val)ok=true;sel.value=ok?val:""}
+function setHash(h){try{history.replaceState(null,"",location.pathname+location.search+h)}catch(e){}}
+function writeHash(){
+  if(syncing)return;
+  var p=new URLSearchParams(),q=$("q").value.trim();
+  if(q)p.set("q",q);
+  [["ftype","tip"],["fcat","cat"],["floc","loc"]].forEach(function(x){if($(x[0]).value)p.set(x[1],$(x[0]).value)});
+  var hd=Object.keys(hidden).filter(function(k){return hidden[k]});if(hd.length)p.set("ascunde",hd.join(","));
+  if(curView==="map"&&openId!=null)p.set("id",openId);
+  var qs=p.toString().replace(/%2C/g,",");
+  setHash("#"+(curView==="map"?"harta":curView==="table"?"tabel":qs?"carti":"explora")+(qs?"?"+qs:""));
+}
+function writeTrailsHash(){
+  var p=new URLSearchParams();if($("tq").value.trim())p.set("q",$("tq").value.trim());if($("tcat").value)p.set("cat",$("tcat").value);
+  var qs=p.toString();setHash("#trasee"+(qs?"?"+qs:""));
+}
+function ensureVisible(id){
+  var l=P.filter(function(x){return x.id===id})[0];if(!l)return false;
+  hidden[groupOf(l).k]=false;
+  if(!view.some(function(x){return x.id===id})){["q","ftype","fcat","floc"].forEach(function(i){$(i).value=""});shown=24;apply()}
+  return true;
+}
+function showOnMap(id){
+  openId=id;ensureVisible(id);setViewUI("map");apply();writeHash();
+  $("v-map").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function applyHash(initial){
+  var raw=location.hash.replace(/^#/,"");if(!raw)return;
+  var qi=raw.indexOf("?"),name=qi<0?raw:raw.slice(0,qi),p=new URLSearchParams(qi<0?"":raw.slice(qi+1));
+  var m=name.match(/^loc\/(\d+)$/),target=null;
+  if(m){name="harta";qi=0;p=new URLSearchParams({id:m[1]})}
+  syncing=true;
+  try{
+    if(name in EXPL){
+      target="explora";
+      if(name!=="explora"||qi>=0){
+        $("q").value=p.get("q")||"";setSel("ftype",p.get("tip"));setSel("fcat",p.get("cat"));setSel("floc",p.get("loc"));
+        hidden={};(p.get("ascunde")||"").split(",").forEach(function(k){if(k)hidden[k]=true});
+        openId=p.get("id")?parseInt(p.get("id"),10):null;
+      }
+      if(EXPL[name])setViewUI(EXPL[name]);else if(openId!=null)setViewUI("map");
+      shown=24;
+      if(openId!=null)ensureVisible(openId);
+      apply();
+      if(curView==="map")target="v-map";
+    }else if(name==="trasee"){
+      target="trasee";$("tq").value=p.get("q")||"";setSel("tcat",p.get("cat"));renderTrails();
+    }else if($(name)){target=name}
+  }finally{syncing=false}
+  if(target&&$(target))$(target).scrollIntoView({behavior:initial?"instant":"smooth",block:"start"});
+}
 
 /* ---------- load ---------- */
 Promise.all([fetch("data/locations.json").then(function(r){return r.json()}),fetch("data/trails.json").then(function(r){return r.json()})]).then(function(d){
@@ -337,13 +433,15 @@ function init(){
   var facts=[["Locații",P.length],["Trasee",T.length],["Localități acoperite",locs.length],["Categorii",cats.length],["Cu coordonate GPS",P.filter(function(l){return l.latitude}).length+" din "+P.length],["Cu descriere",withDesc+" din "+P.length],["Formate","CSV, JSON"],["Limbă","română"],["Sursă","CNIPT Arad, visitarad.ro"]];
   facts.forEach(function(f){var r=el("tr");r.appendChild(el("td",null,f[0]));r.appendChild(el("td",null,String(f[1])));$("facts").appendChild(r)});
 
-  ["q","ftype","fcat","floc"].forEach(function(id){$(id).addEventListener("input",function(){shown=24;apply()})});
-  $("reset").addEventListener("click",function(){["q","ftype","fcat","floc"].forEach(function(id){$(id).value=""});shown=24;apply()});
+  ["q","ftype","fcat","floc"].forEach(function(id){$(id).addEventListener("input",function(){shown=24;openId=null;apply();writeHash()})});
+  $("reset").addEventListener("click",function(){["q","ftype","fcat","floc"].forEach(function(id){$(id).value=""});hidden={};openId=null;shown=24;apply();writeHash()});
+  $("copylink").addEventListener("click",function(){writeHash();copy(location.href)});
   $("more").addEventListener("click",function(){shown+=24;renderCards()});
   $("dl-sel").addEventListener("click",downloadSel);
   ["cards","map","table"].forEach(function(v){$("t-"+v).addEventListener("click",function(){setView(v)})});
-  $("tq").addEventListener("input",renderTrails);$("tcat").addEventListener("input",renderTrails);
-  buildTableHead();apply();renderTrails();initCode();
+  $("tq").addEventListener("input",function(){renderTrails();writeTrailsHash()});$("tcat").addEventListener("input",function(){renderTrails();writeTrailsHash()});
+  buildTableHead();apply();renderTrails();initCode();initDeepLinkDocs();
+  applyHash(true);window.addEventListener("hashchange",function(){applyHash(false)});
 }
 
 /* ---------- filtering ---------- */
@@ -359,27 +457,40 @@ function apply(){
   var filtered=q||ty||ca||lo;
   $("count").textContent=view.length+(view.length===1?" rezultat":" rezultate")+(filtered?" din "+P.length:"");
   $("reset").hidden=!filtered;
-  renderCards();renderTable();if(map&&!$("v-map").hidden)renderMap();
+  renderCards();renderTable();if(curView==="map")renderMap();
 }
 
 /* ---------- views ---------- */
-function setView(v){
+function setViewUI(v){
+  curView=v;
   ["cards","map","table"].forEach(function(x){$("v-"+x).hidden=x!==v;$("t-"+x).setAttribute("aria-selected",x===v)});
-  if(v==="map"){renderMap()}
+}
+function setView(v){
+  setViewUI(v);if(v!=="map")openId=null;
+  if(v==="map")renderMap();
+  writeHash();
 }
 
+function descBlock(parent,text,emptyMsg){
+  if(!text){if(emptyMsg)parent.appendChild(el("p","desc muted",emptyMsg));return}
+  var d=el("p","desc clamp",text);parent.appendChild(d);
+  if(text.length>260||text.split("\n").length>6){
+    var b=el("button","link-btn","Citește tot");b.type="button";b.setAttribute("aria-expanded","false");
+    b.addEventListener("click",function(){var c2=d.classList.toggle("clamp");b.textContent=c2?"Citește tot":"Restrânge";b.setAttribute("aria-expanded",String(!c2))});
+    parent.appendChild(b);
+  }else d.classList.remove("clamp");
+}
 function card(l){
   var c=el("article","card");c.appendChild(el("h3",null,l.name));
-  var ch=el("div","chips");if(l.category)ch.appendChild(el("span","chip",l.category));if(l.locality)ch.appendChild(el("span","chip loc",l.locality));c.appendChild(ch);
-  if(l.description){
-    var d=el("p","desc clamp",l.description);c.appendChild(d);
-    if(l.description.length>260){var b=el("button","link-btn","Citește tot");b.addEventListener("click",function(){var c2=d.classList.toggle("clamp");b.textContent=c2?"Citește tot":"Restrânge"});c.appendChild(b)}
-    else d.classList.remove("clamp");
-  }else c.appendChild(el("p","desc muted","Fără descriere pe site-ul sursă."));
+  var ch=el("div","chips");if(l.category){var cc=el("span","chip"),dot=el("span","dot");dot.style.background=groupOf(l).color;cc.appendChild(dot);cc.appendChild(document.createTextNode(l.category));ch.appendChild(cc)}if(l.locality)ch.appendChild(el("span","chip loc",l.locality));c.appendChild(ch);
+  descBlock(c,l.description,"Fără descriere pe site-ul sursă.");
   if(l.address)c.appendChild(el("div","addr","📍 "+l.address));
   var lk=el("div","links");lk.appendChild(a(l.source_url,"Fișa sursă ↗"));
   if(l.website)lk.appendChild(a(l.website,"Site"));if(l.facebook)lk.appendChild(a(l.facebook,"Facebook"));
   if(l.latitude)lk.appendChild(a("https://www.google.com/maps/dir/?api=1&destination="+l.latitude+","+l.longitude,"Indicații"));
+  if(l.latitude!=null){var bm=el("button","link-btn","🗺 Pe hartă");bm.type="button";bm.addEventListener("click",function(){showOnMap(l.id)});lk.appendChild(bm)}
+  var bl=el("button","link-btn","🔗 Link");bl.type="button";bl.title="Copiază linkul direct către această locație";bl.addEventListener("click",function(){copy(placeLink(l.id))});lk.appendChild(bl);
+  c.id="loc-"+l.id;
   c.appendChild(lk);return c;
 }
 function renderCards(){
@@ -390,25 +501,63 @@ function renderCards(){
   $("more").textContent="Arată mai multe ("+(view.length-shown)+" rămase)";
 }
 
-function renderMap(){
+function renderLegend(){
+  var box=$("legend");box.textContent="";
+  var counts={};view.forEach(function(l){var g=groupOf(l);counts[g.k]=(counts[g.k]||0)+1});
+  var anyHidden=false;
+  GROUPS.concat([OTHER]).forEach(function(g){
+    if(!counts[g.k])return;
+    var off=!!hidden[g.k];if(off)anyHidden=true;
+    var b=el("button","lg"+(off?" off":""));b.type="button";b.setAttribute("aria-pressed",String(!off));
+    if(g.cats.length)b.title=g.cats.join(", ");
+    var pin=el("span","pin sm",g.icon);pin.style.background=g.color;b.appendChild(pin);
+    b.appendChild(el("span","lbl",g.label));b.appendChild(el("span","n","("+counts[g.k]+")"));
+    b.addEventListener("click",function(){hidden[g.k]=!hidden[g.k];renderMap(false);writeHash()});
+    box.appendChild(b);
+  });
+  if(anyHidden){var all=el("button","link-btn","Arată toate");all.type="button";all.addEventListener("click",function(){hidden={};renderMap(false);writeHash()});box.appendChild(all)}
+}
+
+function popupFor(l){
+  var box=el("div");box.appendChild(el("b",null,l.name));
+  box.appendChild(el("div","small",[l.category,l.locality].filter(Boolean).join(" · ")));
+  if(l.description){var t=l.description.replace(/\n{2,}/g,"\n").trim(),pp=el("p",null,t.length>220?t.slice(0,220)+"…":t);pp.style.whiteSpace="pre-line";box.appendChild(pp)}
+  var act=el("div","popup-actions");act.appendChild(a(l.source_url,"Fișa sursă ↗"));
+  var bl=el("button",null,"🔗 Copiază linkul");bl.type="button";bl.addEventListener("click",function(){copy(placeLink(l.id))});act.appendChild(bl);
+  box.appendChild(act);return box;
+}
+
+function renderMap(fit){
+  if(fit===undefined)fit=true;
   if(!map){
     map=L.map("map",{scrollWheelZoom:false}).setView([46.17,21.31],9);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(map);
-    cluster=L.markerClusterGroup({showCoverageOnHover:false});map.addLayer(cluster);
+    cluster=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:45});map.addLayer(cluster);
     map.on("click",function(){map.scrollWheelZoom.enable()});
+    map.on("popupclose",function(){if(!rendering){openId=null;writeHash()}});
   }
-  cluster.clearLayers();var pts=[];
+  rendering=true;cluster.clearLayers();markerById={};var pts=[];
+  renderLegend();
   view.forEach(function(l){
-    if(l.latitude==null||l.longitude==null)return;
-    var box=el("div");box.appendChild(el("b",null,l.name));
-    box.appendChild(el("div","small",[l.category,l.locality].filter(Boolean).join(" · ")));
-    if(l.description){var t=l.description.replace(/\s+/g," ");box.appendChild(el("p",null,t.length>220?t.slice(0,220)+"…":t))}
-    box.appendChild(a(l.source_url,"Fișa sursă ↗"));
-    var m=L.marker([l.latitude,l.longitude],{title:l.name}).bindPopup(box,{maxWidth:300});
-    cluster.addLayer(m);pts.push([l.latitude,l.longitude]);
+    if(l.latitude==null||l.longitude==null||hidden[groupOf(l).k])return;
+    var m=L.marker([l.latitude,l.longitude],{title:l.name,icon:pinIcon(groupOf(l))}).bindPopup(function(){return popupFor(l)},{maxWidth:300});
+    m.on("popupopen",function(){openId=l.id;writeHash()});
+    markerById[l.id]=m;cluster.addLayer(m);pts.push([l.latitude,l.longitude]);
   });
+  rendering=false;
   map.invalidateSize();
-  if(pts.length)map.fitBounds(pts,{padding:[30,30],maxZoom:15});
+  var mk=openId!=null?markerById[openId]:null;
+  if(mk){map.setView(mk.getLatLng(),15,{animate:false});cluster.zoomToShowLayer(mk,function(){mk.openPopup()})}
+  else if(fit&&pts.length)map.fitBounds(pts,{padding:[30,30],maxZoom:15});
+}
+
+function initDeepLinkDocs(){
+  var base=location.href.split("#")[0],ul=$("dl-examples");
+  [["#harta","Harta cu toate locațiile"],["#harta?cat=Biserici","Doar bisericile, pe hartă"],["#harta?loc=Lipova","Locațiile din Lipova, pe hartă"],
+   ["#harta?ascunde=cazare,mancare","Harta fără cazare și mâncare"],["#carti?q=vin","Cărți cu căutarea „vin”"],["#tabel?tip=Cazare","Tabel cu unitățile de cazare"],
+   ["#loc/10","O locație anume (Peștera Sinesie), deschisă pe hartă"],["#trasee?q=Găina","Trasee care conțin „Găina”"],["#incepatori","Ghidul pentru începători"]]
+  .forEach(function(x){var li=el("li");var an=el("a",null,base+x[0]);an.href=x[0];li.appendChild(an);li.appendChild(document.createTextNode(" – "+x[1]));ul.appendChild(li)});
+  GROUPS.forEach(function(g,i){var c=el("code",null,g.k);c.title=g.label;$("groupkeys").appendChild(c);if(i<GROUPS.length-1)$("groupkeys").appendChild(document.createTextNode(", "))});
 }
 
 /* ---------- table ---------- */
@@ -455,7 +604,7 @@ function renderTrails(){
   list.forEach(function(t){
     var d=el("article","card");d.appendChild(el("h3",null,t.name||"Traseu"));
     if(t.category){var ch=el("div","chips");ch.appendChild(el("span","chip",t.category));d.appendChild(ch)}
-    d.appendChild(el("p","desc",t.description||""));
+    descBlock(d,t.description,"");
     var lk=el("div","links");if(t.map_image_url)lk.appendChild(a(t.map_image_url,"Harta traseului"));lk.appendChild(a(t.source_url,"Fișa sursă ↗"));d.appendChild(lk);box.appendChild(d);
   });
 }

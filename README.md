@@ -60,6 +60,24 @@ func main() {
 Idei pentru proiecte: hartă interactivă, itinerar generat după timp/interese, ghid audio, căutare în română/engleză,
 statistici despre acoperirea turistică pe localități, verificare a calității datelor (coordonate lipsă, descrieri incomplete).
 
+## Linkuri directe (deep links)
+
+Pagina web își păstrează starea în adresă, deci orice hartă sau filtru se poate trimite ca link:
+
+| Link | Ce deschide |
+|---|---|
+| `#harta` | Harta cu toate locațiile, cu pini colorați pe categorii |
+| `#harta?cat=Biserici` | Doar bisericile |
+| `#harta?loc=Lipova` | Locațiile din Lipova |
+| `#harta?ascunde=cazare,mancare` | Harta fără cazare și mâncare |
+| `#loc/10` | O locație anume (ID din CSV/JSON), deschisă pe hartă |
+| `#carti?q=vin`, `#tabel?tip=Cazare` | Vederea cărți / tabel cu filtre |
+| `#trasee?q=Găina` | Trasee filtrate |
+| `#incepatori`, `#presa`, `#descarca`, `#sursa` | Secțiunile paginii |
+
+Parametri: `q`, `tip`, `cat`, `loc`, `ascunde` (grupuri de pini: `cazare`, `biserici`, `patrimoniu`, `muzee`, `natura`, `ape`, `vin`, `mancare`, `agrement`), `id`.
+Pe pagină, butonul „🔗 Copiază linkul” și butoanele „🔗 Link” de pe fiecare card dau linkul gata făcut.
+
 ## Reproducere / actualizare
 
 Scriptul de colectare este scris în **Go** (1.21+, doar biblioteca standard):

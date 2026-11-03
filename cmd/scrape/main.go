@@ -137,9 +137,14 @@ func text(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// redactPhones: numerele de telefon din texte nu sunt incluse (se găsesc pe fișa sursă).
+// reContactLine prinde rândurile de contact (persoane de contact, „Contact: …”) care conțin un telefon sau un email.
+var reContactLine = regexp.MustCompile(`(?mi)^[^\n]*(?:persoan[ăa][^\n]*contact|contact)[^\n]*(?:\[telefon pe fișa sursă\]|@)[^\n]*$|^[^\n]*persoan[ăa] de contact[^\n]*$`)
+
+// redactPhones: numerele de telefon și rândurile cu persoane de contact din texte nu sunt incluse
+// (datele de contact se găsesc pe fișa sursă).
 func redactPhones(s string) string {
-	return rePhone.ReplaceAllString(s, "[telefon pe fișa sursă]")
+	s = rePhone.ReplaceAllString(s, "[telefon pe fișa sursă]")
+	return reContactLine.ReplaceAllString(s, "[date de contact pe fișa sursă]")
 }
 
 func nz(s string) *string {
@@ -163,7 +168,8 @@ var (
 	reCrumbHref  = regexp.MustCompile(`<a href="([^"]+)"`)
 	reLocalizare = regexp.MustCompile(`(?s)Localizare:\s*(.*?)</div>`)
 	reDescStart  = regexp.MustCompile(`(?s)<div class="map-item__description[^>]*>`)
-	reDescEnd    = regexp.MustCompile(`<div class="mx-5">|<div id="product-photos"|</section>`)
+	reDescEnd    = regexp.MustCompile(`<div class="mx-5">|<div id="product-photos"|id="nav-reviews"|</section>`)
+	rePara       = regexp.MustCompile(`(?s)<p[^>]*>(.*?)</p>`)
 	reH6         = regexp.MustCompile(`(?s)<h6[^>]*>(.*?)</h6>`)
 	reNofollow   = regexp.MustCompile(`(?s)<a\s+href="(https?://[^"]+)"[^>]*rel="nofollow"`)
 	rePhotos     = regexp.MustCompile(`class="swipebox" href="([^"]+)"`)
@@ -245,7 +251,10 @@ func parseLocation(h, url string) Location {
 	if d := redactPhones(text(secs["Prezentare"])); d != "" {
 		r.Description = &d
 	}
-	r.Address = nz(strings.ReplaceAll(text(secs["Adresă"]), "\n", " "))
+	// Adresa e în primul <p> al secțiunii; restul secțiunii poate conține alte elemente ale paginii.
+	if pm := rePara.FindStringSubmatch(secs["Adresă"]); pm != nil {
+		r.Address = nz(strings.ReplaceAll(text(pm[1]), "\n", " "))
+	}
 	// Contact: păstrăm doar site/Facebook ale obiectivului; NU telefon/email.
 	for _, m := range reNofollow.FindAllStringSubmatch(secs["Contact"], -1) {
 		switch {
