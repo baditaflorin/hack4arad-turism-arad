@@ -1,5 +1,7 @@
 # Hack4Arad – date turistice Arad
 
+**🌐 Pagina web (de citit, hartă, descărcare, ghid pentru începători, info pentru presă): https://baditaflorin.github.io/hack4arad-turism-arad/**
+
 Set de date deschis despre obiectivele turistice, cazarea, gastronomia și traseele din județul Arad,
 pregătit pentru participanții la **[Hack4Arad](https://hack4arad.uav.ro/)** (Universitatea „Aurel Vlaicu”, Arad, 7–8 noiembrie 2026).
 
@@ -14,25 +16,45 @@ data colectării și sursa.
 
 | Fișier | Conținut |
 |---|---|
-| [`data/locations.csv`](data/locations.csv) / [`.json`](data/locations.json) | Locații: nume, tip, categorie, localitate, adresă, coordonate GPS, descriere, site/Facebook, URL sursă |
-| [`data/trails.csv`](data/trails.csv) / [`.json`](data/trails.json) | Trasee turistice: nume, categorie, descriere, imaginea hărții, URL sursă |
-| [`scripts/scrape.py`](scripts/scrape.py) | Scriptul care a produs datele (doar biblioteca standard Python, reproductibil) |
+| [`data/locations.csv`](data/locations.csv) / [`.json`](data/locations.json) / [`-excel.csv`](data/locations-excel.csv) | Locații: nume, tip, categorie, localitate, adresă, coordonate GPS, descriere, site/Facebook, URL sursă |
+| [`data/trails.csv`](data/trails.csv) / [`.json`](data/trails.json) / [`-excel.csv`](data/trails-excel.csv) | Trasee turistice: nume, categorie, descriere, imaginea hărții, URL sursă |
+| [`cmd/scrape`](cmd/scrape/main.go) | Programul în Go care a produs datele (doar biblioteca standard, reproductibil) |
 
+`*-excel.csv` = același CSV, cu marcaj UTF-8 pentru ca Excel să afișeze corect diacriticele.
 Statistici și coloane: vezi [`DATA.md`](DATA.md).
 
 ## Pornire rapidă
-
-```python
-import csv
-rows = list(csv.DictReader(open("data/locations.csv", encoding="utf8")))
-biserici = [r for r in rows if r["category"] == "Biserici"]
-print(len(rows), "locații,", len(biserici), "biserici")
-```
 
 ```js
 const locations = await (await fetch(
   "https://raw.githubusercontent.com/baditaflorin/hack4arad-turism-arad/main/data/locations.json"
 )).json();
+console.log(locations.length, "locații");
+```
+
+```go
+// go run main.go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
+type Location struct {
+	Name     string  `json:"name"`
+	Category *string `json:"category"`
+	Locality *string `json:"locality"`
+}
+
+func main() {
+	resp, _ := http.Get("https://raw.githubusercontent.com/baditaflorin/hack4arad-turism-arad/main/data/locations.json")
+	defer resp.Body.Close()
+	var locs []Location
+	json.NewDecoder(resp.Body).Decode(&locs)
+	fmt.Println(len(locs), "locații; prima:", locs[0].Name)
+}
 ```
 
 Idei pentru proiecte: hartă interactivă, itinerar generat după timp/interese, ghid audio, căutare în română/engleză,
@@ -40,12 +62,15 @@ statistici despre acoperirea turistică pe localități, verificare a calități
 
 ## Reproducere / actualizare
 
+Scriptul de colectare este scris în **Go** (1.21+, doar biblioteca standard):
+
 ```bash
-python3 scripts/scrape.py          # ~6 minute, 1 cerere/secundă, scrie în data/
+go run ./cmd/scrape          # ~6 minute, 1 cerere/secundă, scrie în data/
+go run ./cmd/scrape -h       # opțiuni: -delay, -cache, -out
 ```
 
-Scriptul respectă `robots.txt` (permite tot), se identifică cu un User-Agent cu date de contact și face cache local
-(`.cache/`, ignorat de git).
+Respectă `robots.txt` (permite tot), se identifică cu un User-Agent cu date de contact și face cache local
+(`.cache/`, ignorat de git), deci o a doua rulare nu mai încarcă site-ul.
 
 ## Sursă și condiții de utilizare
 
@@ -61,7 +86,7 @@ Scriptul respectă `robots.txt` (permite tot), se identifică cu un User-Agent c
 - **Date personale:** nu includem telefoane sau adrese de email ale unităților (le găsiți pe fișa sursă).
 - **Nu este un produs oficial** al CNIPT sau al Consiliului Județean Arad. Datele pot conține erori sau pot fi depășite,
   verificați pe fișa sursă.
-- Codul din `scripts/` este sub licență MIT ([`LICENSE`](LICENSE)); licența nu se aplică datelor.
+- Codul din `cmd/` este sub licență MIT ([`LICENSE`](LICENSE)); licența nu se aplică datelor.
 
 ## Contact
 

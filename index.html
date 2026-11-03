@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Date turistice Arad – Hack4Arad</title>
+<meta name="description" content="Set de date deschis despre obiective turistice, cazare, gastronomie și trasee din județul Arad, cu sursa pe fiecare înregistrare. Pregătit pentru hackathonul Hack4Arad, 7–8 noiembrie 2026.">
+<meta property="og:title" content="Date turistice Arad – Hack4Arad">
+<meta property="og:description" content="325 de locații și 30 de trasee din județul Arad: de citit, de explorat pe hartă și de descărcat (CSV/JSON).">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ro_RO">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%8D%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
+<style>
+:root{
+  --bg:#fbfaf7; --surface:#fff; --text:#1d2430; --muted:#5b6575; --line:#e4e1d8;
+  --accent:#0b5d8a; --accent-ink:#fff; --accent-soft:#e3f0f7; --warm:#b4471c; --warm-soft:#fbeee6;
+  --shadow:0 1px 2px rgba(20,30,40,.06),0 4px 14px rgba(20,30,40,.06);
+  --radius:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#12161c; --surface:#1b212a; --text:#e8ebf0; --muted:#9aa5b5; --line:#2b3340;
+    --accent:#6fb8e0; --accent-ink:#0b1a24; --accent-soft:#1c2f3b; --warm:#f0a27a; --warm-soft:#33241d;
+    --shadow:0 1px 2px rgba(0,0,0,.4)}
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+h1,h2,h3{line-height:1.2;margin:0 0 .5em}
+h2{font-size:1.7rem;margin-top:0}
+section{padding:56px 0;border-top:1px solid var(--line)}
+section.first{border-top:0}
+.lead{font-size:1.15rem;color:var(--muted);max-width:46em}
+.muted{color:var(--muted)}
+.small{font-size:.9rem}
+
+/* nav */
+header.nav{position:sticky;top:0;z-index:1000;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header.nav .wrap{display:flex;gap:6px 18px;align-items:center;flex-wrap:wrap;min-height:52px}
+header.nav b{margin-right:auto;font-size:1rem}
+header.nav a{color:var(--text);text-decoration:none;font-size:.95rem;padding:6px 2px}
+header.nav a:hover{color:var(--accent)}
+
+/* hero */
+.hero{padding:56px 0 40px}
+.hero h1{font-size:clamp(2rem,5vw,3.2rem);letter-spacing:-.02em}
+.badge{display:inline-block;background:var(--warm-soft);color:var(--warm);font-weight:600;font-size:.85rem;padding:4px 12px;border-radius:99px;margin-bottom:14px}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:600;font-size:.97rem;text-decoration:none;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:hover{filter:brightness(1.08)}
+.btn.small{padding:6px 12px;font-size:.88rem;border-radius:8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:30px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.stat b{display:block;font-size:1.9rem;line-height:1.1;color:var(--accent)}
+.stat span{color:var(--muted);font-size:.92rem}
+
+/* explore */
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin:18px 0 12px}
+@media(max-width:800px){.filters{grid-template-columns:1fr 1fr}.filters .q{grid-column:1/-1}}
+@media(max-width:480px){.filters{grid-template-columns:1fr}}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted);font-weight:600}
+input,select{font:inherit;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);width:100%}
+input:focus,select:focus,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:6px 0 16px}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.tabs button{font:inherit;font-size:.95rem;padding:8px 16px;border:0;background:transparent;color:var(--text);cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.count{font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+.card h3{font-size:1.12rem;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.78rem;padding:2px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.chip.loc{background:var(--warm-soft);color:var(--warm)}
+.desc{white-space:pre-line;font-size:.97rem}
+.desc.clamp{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.link-btn{background:none;border:0;padding:0;font:inherit;font-size:.9rem;color:var(--accent);cursor:pointer;text-align:left;text-decoration:underline}
+.addr{font-size:.9rem;color:var(--muted)}
+.links{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:auto;padding-top:6px;font-size:.9rem}
+#map{height:620px;border-radius:var(--radius);border:1px solid var(--line);z-index:1}
+@media(max-width:600px){#map{height:480px}}
+.leaflet-popup-content{font:15px/1.45 system-ui,sans-serif;color:#1d2430}
+.leaflet-popup-content b{font-size:1rem}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);max-height:640px}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{position:sticky;top:0;background:var(--surface);cursor:pointer;white-space:nowrap;font-size:.85rem;border-bottom:2px solid var(--line)}
+th[aria-sort=ascending]::after{content:" ▲"} th[aria-sort=descending]::after{content:" ▼"}
+.more{text-align:center;margin-top:22px}
+.empty{padding:40px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius)}
+
+/* guide */
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:20px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.box h3{font-size:1.1rem}
+.box ol,.box ul{padding-left:1.2em;margin:.4em 0}
+.box li{margin:.3em 0}
+.codetabs{margin-top:18px}
+pre{background:#0f1720;color:#e6edf3;padding:16px;border-radius:10px;overflow:auto;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;margin:0}
+.codebox{position:relative}
+.codebox .copy{position:absolute;top:8px;right:8px}
+.copy{font:inherit;font-size:.8rem;padding:4px 10px;border-radius:7px;border:1px solid #3a4655;background:#1c2733;color:#e6edf3;cursor:pointer}
+details{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 18px;margin:10px 0}
+summary{cursor:pointer;font-weight:600}
+code{background:var(--accent-soft);padding:1px 6px;border-radius:5px;font-size:.9em}
+pre code{background:none;padding:0}
+.ideas{columns:2 300px;margin:10px 0 0;padding-left:1.2em}
+.ideas li{margin:.35em 0;break-inside:avoid}
+
+/* press */
+.press{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.press{grid-template-columns:1fr}}
+blockquote.boiler{margin:0;padding:14px 18px;border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:0 10px 10px 0}
+.facts{width:100%;font-size:.97rem}.facts td{padding:6px 0;border-bottom:1px solid var(--line)}.facts td:first-child{color:var(--muted);width:42%}
+footer{padding:36px 0 60px;border-top:1px solid var(--line);color:var(--muted);font-size:.92rem}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f1720;color:#fff;padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:3000}
+.toast.on{opacity:1}
+.skip{position:absolute;left:-999px}.skip:focus{left:10px;top:10px;background:#fff;color:#000;padding:8px;z-index:5000}
+@media print{header.nav,.filters,.toolbar,.btns,.more,#map{display:none}section{padding:20px 0}}
+</style>
+</head>
+<body>
+<a class="skip" href="#explora">Sari la conținut</a>
+<header class="nav"><div class="wrap">
+  <b>📍 Date turistice Arad</b>
+  <a href="#explora">Explorează</a>
+  <a href="#trasee">Trasee</a>
+  <a href="#descarca">Descarcă</a>
+  <a href="#incepatori">Începători</a>
+  <a href="#presa">Presă</a>
+  <a href="#sursa">Sursă</a>
+  <a href="https://github.com/baditaflorin/hack4arad-turism-arad">GitHub ↗</a>
+</div></header>
+
+<main>
+<div class="wrap">
+<div class="hero first">
+  <span class="badge">Hack4Arad · 7–8 noiembrie 2026 · Universitatea „Aurel Vlaicu”</span>
+  <h1>Turismul din județul Arad, ca date deschise</h1>
+  <p class="lead">Obiective turistice, cazare, gastronomie și trasee, cu sursa pe fiecare înregistrare. Le puteți <b>citi</b> aici, le puteți <b>vedea pe hartă</b> și le puteți <b>descărca</b> pentru proiectul vostru.</p>
+  <div class="btns">
+    <a class="btn" href="#explora">Citește și explorează</a>
+    <a class="btn ghost" href="#descarca">Descarcă datele</a>
+    <a class="btn ghost" href="#incepatori">Nu am mai folosit date? Începe aici</a>
+  </div>
+  <div class="stats" id="stats" aria-live="polite"></div>
+</div>
+</div>
+
+<section id="explora"><div class="wrap">
+  <h2>Explorează locațiile</h2>
+  <p class="muted">Caută după nume sau cuvinte din descriere (merge și fără diacritice) și filtrează după tip, categorie sau localitate. Aceleași filtre se aplică la cărți, hartă și tabel.</p>
+  <div class="filters">
+    <label class="f q">Caută<input id="q" type="search" placeholder="ex. cetate, vin, Lipova, pensiune…" autocomplete="off"></label>
+    <label class="f">Tip<select id="ftype"><option value="">Toate</option></select></label>
+    <label class="f">Categorie<select id="fcat"><option value="">Toate</option></select></label>
+    <label class="f">Localitate<select id="floc"><option value="">Toate</option></select></label>
+  </div>
+  <div class="toolbar">
+    <div><span class="count" id="count"></span> <button class="link-btn" id="reset" hidden>Resetează filtrele</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="tabs" role="tablist" aria-label="Mod de afișare">
+        <button role="tab" id="t-cards" aria-selected="true">Cărți</button>
+        <button role="tab" id="t-map" aria-selected="false">Hartă</button>
+        <button role="tab" id="t-table" aria-selected="false">Tabel</button>
+      </div>
+      <button class="btn small ghost" id="dl-sel" title="Descarcă doar rezultatele filtrate">⬇ CSV cu selecția</button>
+    </div>
+  </div>
+  <div id="v-cards"><div class="cards" id="cards"></div><div class="more"><button class="btn ghost" id="more" hidden>Arată mai multe</button></div></div>
+  <div id="v-map" hidden><div id="map" role="region" aria-label="Harta locațiilor"></div><p class="small muted">Hartă © contribuitorii <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>. Apasă pe un pin pentru detalii.</p></div>
+  <div id="v-table" hidden><div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div><p class="small muted">Apasă pe un antet de coloană ca să sortezi.</p></div>
+</div></section>
+
+<section id="trasee"><div class="wrap">
+  <h2>Trasee turistice</h2>
+  <p class="muted">30 de trasee montane, urbane, cicloturistice și tematice. Multe au o imagine cu harta traseului.</p>
+  <div class="filters" style="grid-template-columns:1fr 1fr"><label class="f">Caută traseu<input id="tq" type="search" placeholder="ex. Găina, bicicletă, Lipova…"></label>
+    <label class="f">Categorie<select id="tcat"><option value="">Toate</option></select></label></div>
+  <div class="cards" id="trails"></div>
+</div></section>
+
+<section id="descarca"><div class="wrap">
+  <h2>Descarcă datele</h2>
+  <p class="muted">Aceleași date în formate diferite. Alege ce se potrivește uneltei tale.</p>
+  <div class="grid3">
+    <div class="box"><h3>Locații <span class="muted" id="n-loc"></span></h3>
+      <p class="small muted">Nume, tip, categorie, localitate, adresă, coordonate GPS, descriere, linkuri, sursă.</p>
+      <div class="btns" style="margin:8px 0 0">
+        <a class="btn small" href="data/locations-excel.csv" download>CSV pentru Excel</a>
+        <a class="btn small ghost" href="data/locations.csv" download>CSV (UTF-8)</a>
+        <a class="btn small ghost" href="data/locations.json" download>JSON</a></div></div>
+    <div class="box"><h3>Trasee <span class="muted" id="n-tr"></span></h3>
+      <p class="small muted">Nume, categorie, descriere, imaginea hărții, sursă.</p>
+      <div class="btns" style="margin:8px 0 0">
+        <a class="btn small" href="data/trails-excel.csv" download>CSV pentru Excel</a>
+        <a class="btn small ghost" href="data/trails.csv" download>CSV (UTF-8)</a>
+        <a class="btn small ghost" href="data/trails.json" download>JSON</a></div></div>
+    <div class="box"><h3>Tot proiectul</h3>
+      <p class="small muted">Datele, scriptul de colectare și descrierea coloanelor.</p>
+      <div class="btns" style="margin:8px 0 0">
+        <a class="btn small" href="https://github.com/baditaflorin/hack4arad-turism-arad/archive/refs/heads/main.zip">ZIP</a>
+        <a class="btn small ghost" href="https://github.com/baditaflorin/hack4arad-turism-arad">GitHub</a>
+        <a class="btn small ghost" href="https://github.com/baditaflorin/hack4arad-turism-arad/blob/main/DATA.md">Descrierea coloanelor</a></div></div>
+  </div>
+  <p class="small muted" style="margin-top:14px"><b>CSV pentru Excel</b> are același conținut, dar cu marcaj UTF-8 ca Excel să afișeze corect ș, ț, ă, î, â. Pentru orice alt program folosește „CSV (UTF-8)”.</p>
+</div></section>
+
+<section id="incepatori"><div class="wrap">
+  <h2>Pentru începători</h2>
+  <p class="lead">Nu trebuie să știi programare. Alege varianta care ți se potrivește.</p>
+  <div class="grid3">
+    <div class="box"><h3>1. Vreau doar să văd și să caut</h3>
+      <ul><li>Folosește filtrele de mai sus și vezi rezultatele ca <b>cărți</b>, <b>hartă</b> sau <b>tabel</b>.</li>
+      <li>Fiecare card are linkul către <b>fișa originală</b> de pe visitarad.ro.</li>
+      <li>„⬇ CSV cu selecția” salvează exact ce ai filtrat (de ex. doar bisericile din Arad).</li></ul></div>
+    <div class="box"><h3>2. Vreau să lucrez în Excel / Google Sheets</h3>
+      <ol><li>Descarcă <b>CSV pentru Excel</b> și deschide-l cu dublu-click.</li>
+      <li><b>Google Sheets:</b> Fișier → Import → Încărcare → alege <code>locations.csv</code> (UTF-8).</li>
+      <li>Folosește Sortare și Filtrare pentru a-l analiza; coloanele <code>latitude</code>/<code>longitude</code> merg direct în Google My Maps.</li></ol></div>
+    <div class="box"><h3>3. Vreau să construiesc o aplicație</h3>
+      <ul><li>Cea mai simplă cale: citești <code>locations.json</code> direct de pe web (exemplele de mai jos).</li>
+      <li>Nu ai nevoie de cheie API, cont sau server.</li>
+      <li>Datele sunt statice: le poți copia în proiectul tău.</li></ul></div>
+  </div>
+
+  <h3 style="margin-top:34px">Exemple de cod (copiază și rulează)</h3>
+  <div class="tabs codetabs" role="tablist" aria-label="Limbaj" id="langtabs">
+    <button role="tab" data-lang="js" aria-selected="true">JavaScript</button>
+    <button role="tab" data-lang="go" aria-selected="false">Go</button>
+    <button role="tab" data-lang="sh" aria-selected="false">Terminal</button>
+  </div>
+  <div class="codebox" style="margin-top:10px"><button class="copy" id="copycode">Copiază</button><pre><code id="code"></code></pre></div>
+
+  <h3 style="margin-top:34px">Idei de proiecte</h3>
+  <ul class="ideas">
+    <li>Hartă interactivă a județului, pe tipuri de obiective</li>
+    <li>Generator de itinerar pe 1 zi, după interese și timp</li>
+    <li>Ghid audio sau chatbot care răspunde „ce văd la Lipova?”</li>
+    <li>Cele mai apropiate locuri de mine (folosește GPS-ul telefonului)</li>
+    <li>Statistici: ce localități au puține obiective sau puțină cazare?</li>
+    <li>Traseu cu bicicleta + opriri la crame și pensiuni</li>
+    <li>Verificarea calității datelor: descrieri lipsă, coordonate suspecte</li>
+    <li>Traducere automată a descrierilor în engleză și germană</li>
+  </ul>
+
+  <details><summary>Ce înseamnă „JSON”, „CSV”, „API”?</summary>
+    <p><b>CSV</b>: un tabel în fișier text; se deschide în Excel. <b>JSON</b>: același conținut, într-un format pe care programele îl citesc ușor. <b>API</b>: o adresă web de la care un program ia date. Aici nu avem API: fișierele de pe GitHub sunt ele însele adresele din care citești.</p></details>
+  <details><summary>Datele conțin erori sau lipsuri?</summary>
+    <p>Da, vin așa de pe site-ul sursă: unele locații nu au descriere sau adresă, iar unele texte au greșeli de redactare. Lista completă e în <a href="https://github.com/baditaflorin/hack4arad-turism-arad/blob/main/DATA.md">DATA.md</a>. Ai găsit o greșeală? <a href="https://github.com/baditaflorin/hack4arad-turism-arad/issues/new">Deschide un issue</a>.</p></details>
+</div></section>
+
+<section id="presa"><div class="wrap">
+  <h2>Pentru presă și parteneri</h2>
+  <p class="lead">Informații pe scurt, de citat sau copiat.</p>
+  <div class="press">
+    <div>
+      <h3>Pe scurt</h3>
+      <blockquote class="boiler" id="boiler-ro"></blockquote>
+      <p><button class="btn small ghost" data-copy="boiler-ro">Copiază textul</button></p>
+      <h3 style="margin-top:22px">In short</h3>
+      <blockquote class="boiler" id="boiler-en"></blockquote>
+      <p><button class="btn small ghost" data-copy="boiler-en">Copy text</button></p>
+    </div>
+    <div>
+      <h3>Fișă cu cifre</h3>
+      <table class="facts" id="facts"></table>
+      <h3 style="margin-top:22px">Cum citați sursa</h3>
+      <p class="small">Date: Centrul Național de Informare și Promovare Turistică al Județului Arad (CNIPT Arad), <a href="https://www.visitarad.ro/">visitarad.ro</a>; prelucrare pentru Hack4Arad, 2026.</p>
+      <h3 style="margin-top:22px">Eveniment</h3>
+      <p class="small"><a href="https://hack4arad.uav.ro/">Hack4Arad</a> · Universitatea „Aurel Vlaicu”, Arad · 7–8 noiembrie 2026 · circa 50–60 de participanți.</p>
+      <h3 style="margin-top:22px">Contact</h3>
+      <p class="small">Corecturi și întrebări: <a href="https://github.com/baditaflorin/hack4arad-turism-arad/issues/new">issue pe GitHub</a>. Repo-ul a fost pregătit de un mentor voluntar Hack4Arad; nu este un produs oficial al CNIPT, al Consiliului Județean Arad sau al universității.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="sursa"><div class="wrap">
+  <h2>Sursă și condiții de utilizare</h2>
+  <div class="grid3">
+    <div class="box"><h3>De unde vin datele</h3><p>Din informațiile publice de pe <a href="https://www.visitarad.ro/">visitarad.ro</a>, site-ul Centrului Național de Informare și Promovare Turistică al Județului Arad. Fiecare înregistrare are linkul către fișa originală (<code>source_url</code>) și data colectării.</p></div>
+    <div class="box"><h3>Acordul sursei</h3><p>Am cerut CNIPT Arad permisiunea de a folosi și redistribui un export. Pe 3 noiembrie 2026 au răspuns că site-ul nu are feed, dar că informațiile publice de pe el pot fi preluate.</p></div>
+    <div class="box"><h3>Ce trebuie să faci</h3><ul><li>Menționează sursa: „Date: CNIPT Arad / visitarad.ro”.</li><li>Păstrează linkul către fișa sursă.</li><li>Pentru utilizare comercială sau după hackathon, confirmă condițiile cu CNIPT: nu există o licență formală.</li></ul></div>
+  </div>
+  <p class="small muted" style="margin-top:16px">Imaginile nu sunt incluse (doar linkuri către ele) și rămân ale proprietarilor lor. Telefoanele și emailurile unităților nu sunt incluse. Codul de colectare e sub licență MIT; licența nu se aplică datelor. Detalii în <a href="https://github.com/baditaflorin/hack4arad-turism-arad#readme">README</a>.</p>
+</div></section>
+</main>
+
+<footer><div class="wrap">Hack4Arad · date turistice Arad · <a href="https://github.com/baditaflorin/hack4arad-turism-arad">cod și date pe GitHub</a> · <span id="stamp"></span></div></footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script>
+(function(){
+"use strict";
+var RAW="https://raw.githubusercontent.com/baditaflorin/hack4arad-turism-arad/main/data/";
+var $=function(id){return document.getElementById(id)};
+var norm=function(s){return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase()};
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function a(href,txt,cls){var x=el("a",cls,txt);x.href=href;x.target="_blank";x.rel="noopener";return x}
+function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");setTimeout(function(){t.classList.remove("on")},1800)}
+function copy(text){
+  (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){toast("Copiat")},function(){
+    var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copiat")}catch(e){toast("Nu am putut copia")}ta.remove()})
+}
+var P=[],T=[],view=[],shown=24,map=null,cluster=null,sortKey=null,sortDir=1;
+
+/* ---------- load ---------- */
+Promise.all([fetch("data/locations.json").then(function(r){return r.json()}),fetch("data/trails.json").then(function(r){return r.json()})]).then(function(d){
+  P=d[0];T=d[1];init();
+}).catch(function(e){
+  $("cards").appendChild(el("div","empty","Nu am putut încărca datele ("+e+"). Le găsești și direct pe GitHub, în folderul data/."));
+});
+
+function uniq(arr,key){var m={};arr.forEach(function(x){if(x[key])m[x[key]]=(m[x[key]]||0)+1});return Object.keys(m).sort(function(p,q){return p.localeCompare(q,"ro")})}
+function fill(sel,vals){vals.forEach(function(v){var o=el("option",null,v);o.value=v;sel.appendChild(o)})}
+
+function init(){
+  var locs=uniq(P,"locality"),types=uniq(P,"type"),cats=uniq(P,"category");
+  fill($("ftype"),types);fill($("fcat"),cats);fill($("floc"),locs);fill($("tcat"),uniq(T,"category"));
+  $("n-loc").textContent="("+P.length+")";$("n-tr").textContent="("+T.length+")";
+  var date=(P[0]&&P[0].retrieved_at||"").slice(0,10);$("stamp").textContent=date?"Date colectate la "+date.split("-").reverse().join(".")+".":"";
+  var withDesc=P.filter(function(l){return l.description}).length;
+  var stats=[[P.length,"locații"],[T.length,"trasee"],[locs.length,"localități"],[cats.length,"categorii"],[P.filter(function(l){return l.type==="Obiective turistice"}).length,"obiective turistice"],[P.filter(function(l){return l.type==="Cazare"}).length,"unități de cazare"]];
+  stats.forEach(function(s){var d=el("div","stat");d.appendChild(el("b",null,String(s[0])));d.appendChild(el("span",null,s[1]));$("stats").appendChild(d)});
+
+  // presa
+  var ro="Hack4Arad pune la dispoziția participanților un set de date deschis despre turismul din județul Arad: "+P.length+" de locații (obiective turistice, cazare, gastronomie, agrement) și "+T.length+" trasee, cu coordonate GPS și linkul către fișa sursă pe fiecare înregistrare. Datele provin din informațiile publice ale Centrului Național de Informare și Promovare Turistică al Județului Arad (visitarad.ro) și pot fi explorate pe hartă sau descărcate în format CSV și JSON.";
+  var en="For the Hack4Arad hackathon, an open dataset on tourism in Arad County, Romania is available: "+P.length+" places (attractions, accommodation, food and leisure) and "+T.length+" trails, with GPS coordinates and a source link on every record. The data comes from the public information of the Arad County tourist information centre (CNIPT Arad, visitarad.ro) and can be browsed on a map or downloaded as CSV and JSON.";
+  $("boiler-ro").textContent=ro;$("boiler-en").textContent=en;
+  var facts=[["Locații",P.length],["Trasee",T.length],["Localități acoperite",locs.length],["Categorii",cats.length],["Cu coordonate GPS",P.filter(function(l){return l.latitude}).length+" din "+P.length],["Cu descriere",withDesc+" din "+P.length],["Formate","CSV, JSON"],["Limbă","română"],["Sursă","CNIPT Arad, visitarad.ro"]];
+  facts.forEach(function(f){var r=el("tr");r.appendChild(el("td",null,f[0]));r.appendChild(el("td",null,String(f[1])));$("facts").appendChild(r)});
+
+  ["q","ftype","fcat","floc"].forEach(function(id){$(id).addEventListener("input",function(){shown=24;apply()})});
+  $("reset").addEventListener("click",function(){["q","ftype","fcat","floc"].forEach(function(id){$(id).value=""});shown=24;apply()});
+  $("more").addEventListener("click",function(){shown+=24;renderCards()});
+  $("dl-sel").addEventListener("click",downloadSel);
+  ["cards","map","table"].forEach(function(v){$("t-"+v).addEventListener("click",function(){setView(v)})});
+  $("tq").addEventListener("input",renderTrails);$("tcat").addEventListener("input",renderTrails);
+  buildTableHead();apply();renderTrails();initCode();
+}
+
+/* ---------- filtering ---------- */
+function apply(){
+  var q=norm($("q").value.trim()),ty=$("ftype").value,ca=$("fcat").value,lo=$("floc").value;
+  var words=q?q.split(/\s+/):[];
+  view=P.filter(function(l){
+    if(ty&&l.type!==ty)return false;if(ca&&l.category!==ca)return false;if(lo&&l.locality!==lo)return false;
+    if(words.length){var h=l._h||(l._h=norm([l.name,l.category,l.type,l.locality,l.area,l.address,l.description].join(" ")));
+      for(var i=0;i<words.length;i++)if(h.indexOf(words[i])<0)return false}
+    return true});
+  if(sortKey)view.sort(function(x,y){var p=x[sortKey],r=y[sortKey];if(p==null)return 1;if(r==null)return -1;return (typeof p==="number"?p-r:String(p).localeCompare(String(r),"ro"))*sortDir});
+  var filtered=q||ty||ca||lo;
+  $("count").textContent=view.length+(view.length===1?" rezultat":" rezultate")+(filtered?" din "+P.length:"");
+  $("reset").hidden=!filtered;
+  renderCards();renderTable();if(map&&!$("v-map").hidden)renderMap();
+}
+
+/* ---------- views ---------- */
+function setView(v){
+  ["cards","map","table"].forEach(function(x){$("v-"+x).hidden=x!==v;$("t-"+x).setAttribute("aria-selected",x===v)});
+  if(v==="map"){renderMap()}
+}
+
+function card(l){
+  var c=el("article","card");c.appendChild(el("h3",null,l.name));
+  var ch=el("div","chips");if(l.category)ch.appendChild(el("span","chip",l.category));if(l.locality)ch.appendChild(el("span","chip loc",l.locality));c.appendChild(ch);
+  if(l.description){
+    var d=el("p","desc clamp",l.description);c.appendChild(d);
+    if(l.description.length>260){var b=el("button","link-btn","Citește tot");b.addEventListener("click",function(){var c2=d.classList.toggle("clamp");b.textContent=c2?"Citește tot":"Restrânge"});c.appendChild(b)}
+    else d.classList.remove("clamp");
+  }else c.appendChild(el("p","desc muted","Fără descriere pe site-ul sursă."));
+  if(l.address)c.appendChild(el("div","addr","📍 "+l.address));
+  var lk=el("div","links");lk.appendChild(a(l.source_url,"Fișa sursă ↗"));
+  if(l.website)lk.appendChild(a(l.website,"Site"));if(l.facebook)lk.appendChild(a(l.facebook,"Facebook"));
+  if(l.latitude)lk.appendChild(a("https://www.google.com/maps/dir/?api=1&destination="+l.latitude+","+l.longitude,"Indicații"));
+  c.appendChild(lk);return c;
+}
+function renderCards(){
+  var box=$("cards");box.textContent="";
+  if(!view.length){box.appendChild(el("div","empty","Niciun rezultat. Încearcă alt cuvânt sau resetează filtrele."));$("more").hidden=true;return}
+  view.slice(0,shown).forEach(function(l){box.appendChild(card(l))});
+  $("more").hidden=shown>=view.length;
+  $("more").textContent="Arată mai multe ("+(view.length-shown)+" rămase)";
+}
+
+function renderMap(){
+  if(!map){
+    map=L.map("map",{scrollWheelZoom:false}).setView([46.17,21.31],9);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(map);
+    cluster=L.markerClusterGroup({showCoverageOnHover:false});map.addLayer(cluster);
+    map.on("click",function(){map.scrollWheelZoom.enable()});
+  }
+  cluster.clearLayers();var pts=[];
+  view.forEach(function(l){
+    if(l.latitude==null||l.longitude==null)return;
+    var box=el("div");box.appendChild(el("b",null,l.name));
+    box.appendChild(el("div","small",[l.category,l.locality].filter(Boolean).join(" · ")));
+    if(l.description){var t=l.description.replace(/\s+/g," ");box.appendChild(el("p",null,t.length>220?t.slice(0,220)+"…":t))}
+    box.appendChild(a(l.source_url,"Fișa sursă ↗"));
+    var m=L.marker([l.latitude,l.longitude],{title:l.name}).bindPopup(box,{maxWidth:300});
+    cluster.addLayer(m);pts.push([l.latitude,l.longitude]);
+  });
+  map.invalidateSize();
+  if(pts.length)map.fitBounds(pts,{padding:[30,30],maxZoom:15});
+}
+
+/* ---------- table ---------- */
+var COLS=[["name","Nume"],["type","Tip"],["category","Categorie"],["locality","Localitate"],["address","Adresă"]];
+function buildTableHead(){
+  var tr=el("tr");
+  COLS.forEach(function(c){
+    var th=el("th",null,c[1]);th.tabIndex=0;th.setAttribute("role","columnheader");
+    var go=function(){
+      if(sortKey===c[0])sortDir=-sortDir;else{sortKey=c[0];sortDir=1}
+      apply();
+    };
+    th.addEventListener("click",go);th.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}});
+    th.dataset.k=c[0];tr.appendChild(th);
+  });
+  tr.appendChild(el("th",null,"Sursă"));
+  $("tbl").tHead.appendChild(tr);
+}
+function renderTable(){
+  var ths=$("tbl").tHead.querySelectorAll("th[data-k]");
+  ths.forEach(function(th){if(th.dataset.k===sortKey)th.setAttribute("aria-sort",sortDir>0?"ascending":"descending");else th.removeAttribute("aria-sort")});
+  var tb=$("tbl").tBodies[0];tb.textContent="";
+  view.forEach(function(l){
+    var tr=el("tr");COLS.forEach(function(c){tr.appendChild(el("td",null,l[c[0]]||""))});
+    var td=el("td");td.appendChild(a(l.source_url,"fișă ↗"));tr.appendChild(td);tb.appendChild(tr);
+  });
+}
+
+/* ---------- download selection ---------- */
+function csvCell(v){v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function downloadSel(){
+  var cols=["id","name","type","category","locality","area","address","latitude","longitude","description","website","facebook","source_url"];
+  var rows=[cols.join(",")].concat(view.map(function(l){return cols.map(function(c){return csvCell(l[c])}).join(",")}));
+  var blob=new Blob(["﻿"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  var u=URL.createObjectURL(blob),x=document.createElement("a");x.href=u;x.download="locatii-arad-selectie.csv";document.body.appendChild(x);x.click();x.remove();
+  setTimeout(function(){URL.revokeObjectURL(u)},1000);toast(view.length+" rânduri descărcate");
+}
+
+/* ---------- trails ---------- */
+function renderTrails(){
+  var q=norm($("tq").value.trim()),c=$("tcat").value,box=$("trails");box.textContent="";
+  var list=T.filter(function(t){return (!c||t.category===c)&&(!q||norm([t.name,t.category,t.description].join(" ")).indexOf(q)>=0)});
+  if(!list.length){box.appendChild(el("div","empty","Niciun traseu găsit."));return}
+  list.forEach(function(t){
+    var d=el("article","card");d.appendChild(el("h3",null,t.name||"Traseu"));
+    if(t.category){var ch=el("div","chips");ch.appendChild(el("span","chip",t.category));d.appendChild(ch)}
+    d.appendChild(el("p","desc",t.description||""));
+    var lk=el("div","links");if(t.map_image_url)lk.appendChild(a(t.map_image_url,"Harta traseului"));lk.appendChild(a(t.source_url,"Fișa sursă ↗"));d.appendChild(lk);box.appendChild(d);
+  });
+}
+
+/* ---------- code samples ---------- */
+var CODE={
+js:'// Rulează în browser (consolă) sau în Node 18+\nconst url = "'+RAW+'locations.json";\nconst locations = await (await fetch(url)).json();\n\nconst biserici = locations.filter(l => l.category === "Biserici");\nconsole.log(locations.length + " locații, " + biserici.length + " biserici");\nconsole.log(biserici[0].name, "→", biserici[0].source_url);',
+go:'// salvează ca main.go și rulează: go run main.go\npackage main\n\nimport (\n\t"encoding/json"\n\t"fmt"\n\t"net/http"\n)\n\ntype Location struct {\n\tName      string   `json:"name"`\n\tCategory  *string  `json:"category"`\n\tLocality  *string  `json:"locality"`\n\tLatitude  *float64 `json:"latitude"`\n\tLongitude *float64 `json:"longitude"`\n\tSourceURL string   `json:"source_url"`\n}\n\nfunc main() {\n\tresp, err := http.Get("'+RAW+'locations.json")\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tdefer resp.Body.Close()\n\tvar locs []Location\n\tif err := json.NewDecoder(resp.Body).Decode(&locs); err != nil {\n\t\tpanic(err)\n\t}\n\tfmt.Println(len(locs), "locații; prima:", locs[0].Name, locs[0].SourceURL)\n}',
+sh:'# descarcă fișierul\ncurl -O '+RAW+'locations.csv\n\n# câte locații sunt pe categorii (cu jq)\ncurl -s '+RAW+'locations.json | jq -r \'.[].category\' | sort | uniq -c | sort -rn\n\n# regenerează datele din sursă (Go 1.21+)\ngit clone https://github.com/baditaflorin/hack4arad-turism-arad && cd hack4arad-turism-arad\ngo run ./cmd/scrape'
+};
+function initCode(){
+  var cur="js";
+  function show(){$("code").textContent=CODE[cur]}
+  document.querySelectorAll("#langtabs button").forEach(function(b){b.addEventListener("click",function(){
+    cur=b.dataset.lang;document.querySelectorAll("#langtabs button").forEach(function(x){x.setAttribute("aria-selected",x===b)});show()})});
+  $("copycode").addEventListener("click",function(){copy(CODE[cur])});
+  document.querySelectorAll("[data-copy]").forEach(function(b){b.addEventListener("click",function(){copy($(b.dataset.copy).textContent)})});
+  show();
+}
+})();
+</script>
+</body>
+</html>

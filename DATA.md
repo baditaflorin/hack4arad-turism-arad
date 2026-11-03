@@ -1,6 +1,6 @@
 # Descrierea datelor
 
-Colectat: 2026-11-03T09:40:14Z de pe [visitarad.ro](https://www.visitarad.ro/ro/sitemap) (toate cele 325 locații din sitemap-ul site-ului și 30 trasee).
+Colectat: 2026-11-03T09:45:24Z de pe [visitarad.ro](https://www.visitarad.ro/ro/sitemap) (toate cele 325 locații din sitemap-ul site-ului și 30 trasee), cu [`cmd/scrape`](cmd/scrape/main.go).
 
 ## `locations.csv` / `locations.json` (325 înregistrări)
 
@@ -21,7 +21,9 @@ Colectat: 2026-11-03T09:40:14Z de pe [visitarad.ro](https://www.visitarad.ro/ro/
 | `category_url` | Pagina categoriei pe visitarad.ro |
 | `retrieved_at`, `source` | Proveniența |
 
-JSON-ul are și `slug` și `marker` (tipul pinului de pe hartă).
+JSON-ul are și `slug` și `marker` (tipul pinului de pe hartă). Valorile lipsă sunt `null` în JSON și gol în CSV.
+
+Fișierele `*-excel.csv` au același conținut, cu marcaj UTF-8 (BOM), ca Excel să afișeze corect diacriticele.
 
 ### Tipuri
 | Tip | Număr |
@@ -90,9 +92,9 @@ Un traseu nu apare în nicio pagină de categorie pe site, deci are `category` g
 
 ## Limitări cunoscute (provin din sursă, nu au fost corectate)
 
-- Descriere lipsă: 149 din 325 locații; adresă lipsă: 88; zonă (`area`) lipsă: 16.
+- Descriere lipsă pe site: 90 din 325 locații (în special unități de cazare și gastronomie); zonă (`area`) lipsă: 16.
 - `area` nu e unitar pe site: „Munții Codru Moma” și „Munții Codru-Moma” apar ambele.
 - Coordonatele sunt cele de pe site; nu au fost verificate individual (doar încadrare grosieră în județul Arad, inclusiv Nădlac, în vest).
 - Unele texte nu au diacritice sau au greșeli de redactare.
 - Telefoanele și adresele de email ale unităților nu sunt incluse intenționat (nici în câmpuri, nici în textul descrierilor: apar ca `[telefon pe fișa sursă]`).
-- Pagina de prezentare e doar în română în acest export (site-ul are și versiuni EN/DE).
+- Textele sunt doar în română în acest export (site-ul are și versiuni EN/DE).
